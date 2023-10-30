@@ -1,0 +1,97 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
+
+class CompressedVector
+{
+    private List<int> compressedVector;
+
+    public CompressedVector()
+    {
+        compressedVector = new List<int>();
+    }
+
+    public void Compress(int[] vector, int numThreads)
+    {
+        int chunkSize = vector.Length / numThreads;
+
+        List<Thread> threads = new List<Thread>();
+
+        for (int i = 0; i < numThreads; i++)
+        {
+            int startIndex = i * chunkSize;
+            int endIndex = (i == numThreads - 1) ? vector.Length : (i + 1) * chunkSize;
+
+            Thread thread = new Thread(() =>
+            {
+                for (int j = startIndex; j < endIndex; j++)
+                {
+                    if (vector[j] != 0)
+                    {
+                        lock (compressedVector)
+                        {
+                            compressedVector.Add(vector[j]);
+                        }
+                    }
+                }
+            });
+
+            threads.Add(thread);
+            thread.Start();
+        }
+
+        foreach (Thread thread in threads)
+        {
+            thread.Join();
+        }
+    }
+
+    public List<int> GetCompressedVector()
+    {
+        return compressedVector;
+    }
+}
+
+class Program
+{
+    static void Main()
+    {
+        int[] vector = { 0, 2, 0, 5, 0, 0, 7, 0, 0, 9 };
+        int numThreads = Environment.ProcessorCount;
+       
+       CompressedVector singleThreadCompressedVector = new CompressedVector();
+        CompressedVector compressedVector = new CompressedVector();
+        // Вимірювання часу виконання однопотокової версії
+        Stopwatch stopwatch = new Stopwatch();
+        stopwatch.Start();
+
+        singleThreadCompressedVector.Compress(vector, 1);
+
+        stopwatch.Stop();
+        long singleThreadTime = stopwatch.ElapsedMilliseconds;
+
+        Console.WriteLine("Single-Thread Execution Time: " + singleThreadTime + "ms");
+
+
+        // Вимірювання часу виконання багатопотокової версії
+        stopwatch.Restart();
+
+        compressedVector.Compress(vector, numThreads);
+
+        stopwatch.Stop();
+        long multiThreadTime = stopwatch.ElapsedMilliseconds;
+
+        Console.WriteLine("Multi-Thread Execution Time: " + multiThreadTime + "ms");
+    Console.WriteLine("Number of Threads: " + numThreads);
+        // Обчислення та виведення прискорення
+        double speedup = (double)singleThreadTime / multiThreadTime;
+        Console.WriteLine("Speedup: " + speedup);
+
+        Console.WriteLine("Compressed Vector:");
+        foreach (var element in compressedVector.GetCompressedVector())
+        {
+            Console.Write(element + " ");
+        }
+    }
+}
